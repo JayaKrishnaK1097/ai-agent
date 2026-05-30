@@ -1,0 +1,15 @@
+Project: AI Agent Demo
+Status: In progress
+Last updated: May 30, 2026
+
+Goals:
+- Build an AI agent with three tools
+- Web search via Tavily
+- Local file reading
+- SQLite database queries
+
+Notes:
+The agent uses Gemini 2.5 Flash as the reasoning model. It is built using LangChain and LangGraph v1.0. The agent decides at runtime which tools to call based on the user's question.
+
+Next steps:
+Add database tool. Then wrap everything in a FastAPI REST endpoint.
