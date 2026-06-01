@@ -1,90 +1,15 @@
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_tavily import TavilySearch
 from langchain.agents import create_agent
-from langchain_core.tools import tool
 from datetime import date
-import os
-import pyodbc
+
+from tools.database import query_database
+from tools.file_reader import read_file
+from tools.web_search import search_tool
 
 load_dotenv()
 
-@tool
-def read_file(filename: str) -> str:
-    """Read the contents of a local text file from the current directory.
-
-    Use this tool when the user asks about the contents of a specific file
-    or asks you to summarize, analyze, or quote from a local file.
-
-    Args:
-        filename: The name of the file to read (e.g. 'notes.txt')
-
-    Returns:
-        The full text contents of the file, or an error message if the file
-        cannot be read.
-    """
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"Error: File '{filename}' not found."
-    except Exception as e:
-        return f"Error reading file: {str(e)}"
-
-@tool
-def query_database(sql_query: str) -> str:
-    """Execute a SQL SELECT query against the company database and return the results.
-
-    Use this tool when the user asks about employee data — names, departments, roles,
-    salaries, or hire dates. The database has one table called 'employees' with columns:
-    id (int), name (text), department (text), role (text), salary (int), hire_date (date).
-
-    Only SELECT queries are allowed. Any INSERT, UPDATE, DELETE, or DROP will be rejected.
-
-    Args:
-        sql_query: A valid SQL SELECT statement (e.g., "SELECT name, salary FROM employees WHERE department = 'Engineering'")
-
-    Returns:
-        Query results formatted as text, or an error message if the query fails.
-    """
-    # Safety guard: only allow SELECT queries
-    query_upper = sql_query.strip().upper()
-    if not query_upper.startswith("SELECT"):
-        return "Error: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, and DROP are blocked."
-
-    forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE", "ALTER", "CREATE"]
-    for word in forbidden:
-        if word in query_upper:
-            return f"Error: Query contains forbidden keyword '{word}'."
-
-    try:
-        conn_string = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={os.getenv('DB_SERVER')};"
-            f"DATABASE={os.getenv('DB_NAME')};"
-            f"UID={os.getenv('DB_USER')};"
-            f"PWD={os.getenv('DB_PASSWORD')}"
-        )
-        with pyodbc.connect(conn_string) as conn:
-            cursor = conn.cursor()
-            cursor.execute(sql_query)
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-
-            if not rows:
-                return "Query executed successfully but returned no rows."
-
-            # Format as readable text
-            result = " | ".join(columns) + "\n"
-            result += "-" * len(result) + "\n"
-            for row in rows:
-                result += " | ".join(str(v) for v in row) + "\n"
-            return result
-    except Exception as e:
-        return f"Database error: {str(e)}"
-
 # Step 1: Define the tools the agent can use
-search_tool = TavilySearch(max_results=3)
 tools = [search_tool, read_file, query_database]  # Add the read_file and query_database tools to the list of tools available to the agent
 
 # Step 2: Create the LLM
