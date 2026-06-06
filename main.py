@@ -10,6 +10,11 @@ import logging
 import uuid
 import time
 
+# Token cost configuration
+from usage_tracker import UsageTracker
+
+usage_tracker = UsageTracker()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +49,11 @@ async def health():
 @app.get("/cache-stats")
 async def cache_stats():
     return response_cache.stats()
+
+@app.get("/usage-stats")
+async def usage_stats():
+    """Return lifetime usage statistics for the agent."""
+    return usage_tracker.get_stats()
 
 @app.post("/ask", response_model=AnswerResponse)
 async def ask(request: QuestionRequest):
@@ -89,10 +99,22 @@ async def ask(request: QuestionRequest):
     else:
         answer_text = str(content)
 
+    input_tokens, output_tokens = usage_tracker.extract_token_usage(result)
+    cost_usd = usage_tracker.record_usage(input_tokens, output_tokens)
+
     response_cache.set(normalize_question(request.question), {"answer": answer_text, "tools_used": tools_used})
 
     # Log the cache miss with latency, tools used, and request ID for traceability.
     latency = (time.perf_counter() - start_time) * 1000
-    logger.info(f"event=request_completed request_id=[{request_id}] cache_hit=false tools_used={tools_used} latency={latency:.2f} ms")
+    logger.info(
+        f"event=request_completed "
+        f"request_id={request_id} "
+        f"cache_hit=false "
+        f"tools_used={tools_used} "
+        f"input_tokens={input_tokens} "
+        f"output_tokens={output_tokens} "
+        f"cost_usd={cost_usd:.6f} "
+        f"latency_ms={latency:.2f}"
+    )
 
     return AnswerResponse(answer=answer_text, cache_hit=False, tools_used=tools_used)
