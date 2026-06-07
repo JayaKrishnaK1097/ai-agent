@@ -13,6 +13,9 @@ import time
 # Token cost configuration
 from usage_tracker import UsageTracker
 
+# Resilience wrapper
+from resilience import with_retry
+
 usage_tracker = UsageTracker()
 
 # Configure logging
@@ -41,6 +44,11 @@ def normalize_question(question: str) -> str:
     cleaned = question.strip().lower()
     cleaned = cleaned.rstrip("?!.")
     return cleaned
+
+@with_retry
+def invoke_agent_with_retry(question: str):
+    """Wrapper around agent.invoke that retries on transient failures."""
+    return agent.invoke({"messages": [("user", question)]})
 
 @app.get("/health")
 async def health():
@@ -75,7 +83,7 @@ async def ask(request: QuestionRequest):
         return AnswerResponse(answer=result["answer"], cache_hit=True, tools_used=result.get("tools_used", []))
     
     try:    
-        result = agent.invoke({"messages": [("user", request.question)]})
+        result = invoke_agent_with_retry(request.question)
     except Exception as e:
 
         # Log the error with latency and request ID for debugging.  
