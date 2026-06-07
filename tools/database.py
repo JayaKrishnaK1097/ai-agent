@@ -7,7 +7,7 @@ load_dotenv()
 
 @tool
 def query_database(sql_query: str) -> str:
-    """Execute a SQL SELECT query against the company database and return the results.
+    """Execute a SQL SELECT query against the company database in Microsoft SQL Server and return the results.
 
     Use this tool when the user asks about employee data — names, departments, roles,
     salaries, or hire dates. The database has a table called 'employees' with columns:
