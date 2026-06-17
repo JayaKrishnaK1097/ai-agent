@@ -46,9 +46,9 @@ def normalize_question(question: str) -> str:
     return cleaned
 
 @with_retry
-def invoke_agent_with_retry(question: str):
+async def invoke_agent_with_retry(question: str):
     """Wrapper around agent.invoke that retries on transient failures."""
-    return agent.invoke({"messages": [("user", question)]})
+    return await agent.ainvoke({"messages": [("user", question)]})
 
 @app.get("/health")
 async def health():
@@ -83,7 +83,7 @@ async def ask(request: QuestionRequest):
         return AnswerResponse(answer=result["answer"], cache_hit=True, tools_used=result.get("tools_used", []))
     
     try:    
-        result = invoke_agent_with_retry(request.question)
+        result = await invoke_agent_with_retry(request.question)
     except Exception as e:
 
         # Log the error with latency and request ID for debugging.  
